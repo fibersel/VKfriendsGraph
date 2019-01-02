@@ -25,7 +25,7 @@ class Node:
 		return 'id:{} links:{}\n'.format(self.user_id, self.links)
 
 
-def GraphPlot(data):
+def GraphPlot(data, labels):
 	G = ig.Graph(edges=[(node.user_id, dest) for node in data for dest in node.links])
 	layt = G.layout('kk', dim=3)
 	N = len(layt)
@@ -49,7 +49,7 @@ def GraphPlot(data):
                              colorscale='Viridis',
                              line=dict(color='rgb(50,50,50)', width=0.5)
                              ),
-                    #text=labels,
+                    text=labels,
                     hoverinfo='text')
 	
 	trace2 = go.Scatter3d(x = Xe,
@@ -113,14 +113,17 @@ def DataProcessing(V, data):
 
 
 def makeNode(user_id, json, V):
-	return Node(user_id=user_id, links=[item for item in  json['response']['items'] if item in V])
+	return Node(user_id=user_id, links=[item['id'] for item in  json['response']['items'] if item['id'] in V])
 
 
 def main():
 	user_id = input()
-	query = 'friends.get?user_id={}&v={}&access_token={}'
+	r1 = requests.get('https://api.vk.com/method/users.get?user_id={}&v={}&access_token={}'.format(user_id, v, access_token))
+	username = r1.json()['response'][0]['first_name'] + ' ' +  r1.json()['response'][0]['last_name']
+	query = 'friends.get?user_id={}&v={}&access_token={}&fields=city'
 	r = requests.get(api_url + query.format(user_id, v, access_token))
-	V = [user_id] + [item for item in r.json()['response']['items']]
+	V = [user_id] + [item['id'] for item in r.json()['response']['items']]
+	labels =[username] + [item['first_name'] + item['last_name'] for item in r.json()['response']['items']]	
 	root =  makeNode(user_id=user_id, json=r.json(), V=V)
 	count = r.json()['response']['count']
 	print('root user{} has been considered, number of friends:{}'.format(user_id, count)) 
@@ -133,7 +136,7 @@ def main():
 		ctr += 1
 		print('user{} has been cosidered, counter{}'.format(user_id, ctr)) 
 	data = DataProcessing(V, data)
-	GraphPlot(data)
+	GraphPlot(data, labels)
 
 
 if __name__=='__main__':
